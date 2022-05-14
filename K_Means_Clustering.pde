@@ -1,28 +1,39 @@
 import peasy.PeasyCam;
 
 PeasyCam cam;
-final int SIZE = 1200;
+OpenSimplexNoise noise;
+
+final int SIZE = 900;
+final int STEP = 5;
+final int k=6;
+final int EXPORT_FRAMECOUNT = 120;
 ArrayList<Datum>  points = new ArrayList<Datum>();
 ArrayList<Datum> centroids = new ArrayList<Datum>();
 Network network = new Network();
-int k=5;
 
 void settings() {
 
   size(SIZE, SIZE, P3D);
   //fullScreen(P3D);
-  noSmooth();
+  //noSmooth();//for performance reasons
 }
+
+
 
 void setup() {
   colorMode(HSB, 360, 100, 100);
   //http://mrfeinberg.com/peasycam/reference/index.html
-  cam = new PeasyCam(this, SIZE>>1, SIZE>>1, SIZE>>1, SIZE<<1);
+  cam = new PeasyCam(this, SIZE>>1, SIZE>>1, SIZE>>1, SIZE*1.5 );
+  noise = new OpenSimplexNoise();
 
   //Initialize the centroids
   for (int i = 0; i < k; i++) {
     centroids.add(new Datum(i, new float[] {random(0, 1), random(0, 1), random(0, 1)}));
   }
+
+  updateSimplex();
+  zoff=0;
+    kmeans();
 }
 
 void connect() {
@@ -38,16 +49,47 @@ void connect() {
   //network.InitPoints();
 }
 
+
+
+void draw() {
+  background(0);
+
+  //Draw the points
+  strokeWeight(2);
+  for (Datum d : points) {
+    d.draw();
+  }
+
+  //Draw the centroid targets
+  strokeWeight(16);
+  for (Datum d : centroids) {
+    d.draw();
+  }
+  updateSimplex();
+
+  //updatePerlin();
+
+  kmeans();
+  guideLines();
+  saveFrame("###.png");
+  if (frameCount>=EXPORT_FRAMECOUNT) {
+    exit();
+  }
+}
+
 float zoff=0;
-void initPerlin() {
-  points = new ArrayList<Datum>();
-  float inc = 0.01;
+
+void updatePerlin() {
+
+  points.clear();
+  float inc = 0.03;
   float xoff = 0;   // Increment xoff
-  for (int x = 0; x < SIZE; x+=8) {
+  for (int x = 0; x < SIZE; x+=STEP) {
     float yoff = 0.0;   // For every xoff, start yoff at 0
-    for (int y = 0; y < SIZE; y+=8) {
+    for (int y = 0; y < SIZE; y+=STEP) {
       yoff += inc; // Increment yoff
       float[] data = {map(x, 0, SIZE, 0, 1), map(y, 0, SIZE, 0, 1), noise(xoff, yoff, zoff)};
+      //println(noise(xoff, yoff, zoff));
       points.add(new Datum(-1, data));
       yoff+=inc;
     }
@@ -56,30 +98,29 @@ void initPerlin() {
   zoff+=inc;
 }
 
-void draw() {
-
-  //println(centroids.get(0).toString());
-  //translate(width/2, height/2, size>>1);
-  //rotateZ(frameCount*0.003);
-  //rotateY(frameCount*0.004);
-  //translate(-width/2, -height/2, -size>>1);
-  background(0);
-  strokeWeight(2);
-  //Draw the points
-  for (Datum d : points) {
-    d.draw();
-    d.wiggle();
+void updateSimplex() {
+  points.clear();
+  float inc = 0.02;
+  float percent = map(frameCount%EXPORT_FRAMECOUNT, 0, EXPORT_FRAMECOUNT, 0, 1);
+  println(frameCount%EXPORT_FRAMECOUNT+" : "+percent);
+  float angle = map(percent, 0, 1, 0, TWO_PI);
+  float uoff = map(sin(angle), -1, 1, 0, 2);
+  float voff = map(sin(angle), -1, 1, 0, 2);
+  float xoff = 0;
+  for (int x = 0; x < SIZE; x+=STEP) {
+    float yoff = 0.0;
+    for (int y = 0; y < SIZE; y+=STEP) {
+      yoff += inc;
+      float n = (float) noise.eval(xoff, yoff, uoff, voff)+0.5;
+      //if(n>1 || n < 0){println(n);}
+      float[] data = {map(x, 0, SIZE, 0, 1), map(y, 0, SIZE, 0, 1), constrain(n, 0, 1)};
+      points.add(new Datum(-1, data));
+      yoff += inc;
+    }
+    xoff += inc;
   }
-  strokeWeight(10);
-  //Draw the centroid targets
-  for (Datum d : centroids) {
-    d.draw();
-  }
-  initPerlin();
-  kmeans();
-  guideLines();
+  zoff += inc;
 }
-
 
 void kmeans () {
   /* Associate each point with its closest centroid */
@@ -113,7 +154,7 @@ void kmeans () {
   }
 }
 
-boolean state = true;
+boolean state = false;
 void keyPressed() {
   state = !state;
 }
