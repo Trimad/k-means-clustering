@@ -2,6 +2,7 @@ class Datum {
   int index;
   float[] data;
   String label;
+
   Datum(int index, float[] data, String label) {
 
     this.index = index;
@@ -17,7 +18,7 @@ class Datum {
 
   Datum(int index) {
     this.index = index;
-    this.data = new float[]{0, 0, 0};
+    this.data = new float[]{0, 0, 0};//x,y, and z coordinates that are later normalized between 0 and 1
   }
 
   public double dist(Datum other) {
@@ -45,10 +46,14 @@ class Datum {
     }
   }
 
-  public void wiggle() {
-    for (int i = 0; i < this.data.length; i++) {
-      this.data[i] += random(-0.002, 0.002);
-    }
+  //public void wiggle() {
+  //  for (int i = 0; i < this.data.length; i++) {
+  //    this.data[2] += random(-0.002, 0.002);
+  //  }
+  //}
+
+  public void updateZ(float z) {
+    this.data[2] = z;
   }
 
   public void draw() {
